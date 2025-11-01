@@ -110,8 +110,42 @@
 /* Department report action */
 .dept-report-actions {
     display: flex;
-    align-items: flex-end;
-    margin-left: auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    width: 100%;
+}
+
+.format-selection {
+    display: flex;
+    align-items: center;
+    margin-right: 1rem;
+}
+
+.format-selection label {
+    font-weight: 500;
+    margin-right: 0.75rem;
+    color: #333;
+}
+
+.format-options {
+    display: flex;
+    gap: 1rem;
+}
+
+.format-option {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.format-option input {
+    margin-right: 0.5rem;
+}
+
+.format-option span {
+    font-size: 0.9rem;
 }
 
 .generate-dept-btn {

@@ -19,6 +19,7 @@ const Analysis = () => {
         courses: []
     });
 
+    const [reportFormat, setReportFormat] = useState('excel');
     const [faculty, setFaculty] = useState([]);
     const [staffIdSearch, setStaffIdSearch] = useState('');
     const [loadingAnalysis, setLoadingAnalysis] = useState(false);
@@ -47,7 +48,8 @@ const Analysis = () => {
                 body: JSON.stringify({
                     degree: filters.degree,
                     dept: filters.department,
-                    batch: filters.batch
+                    batch: filters.batch,
+                    format: reportFormat
                 })
             });
             if (!resp.ok) {
@@ -58,7 +60,8 @@ const Analysis = () => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `department_feedback_${filters.department}_${filters.batch}.xlsx`;
+            const fileExtension = reportFormat === 'pdf' ? 'pdf' : 'xlsx';
+            a.download = `department_feedback_${filters.department}_${filters.batch}.${fileExtension}`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -83,7 +86,8 @@ const Analysis = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     degree: filters.degree,
-                    dept: filters.department
+                    dept: filters.department,
+                    format: reportFormat
                 })
             });
             if (!resp.ok) {
@@ -94,7 +98,8 @@ const Analysis = () => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `department_feedback_${filters.department}_ALL_BATCHES.xlsx`;
+            const fileExtension = reportFormat === 'pdf' ? 'pdf' : 'xlsx';
+            a.download = `department_feedback_${filters.department}_ALL_BATCHES.${fileExtension}`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -301,7 +306,7 @@ const Analysis = () => {
             return false;
         }
     };
-
+    
     const handleGenerateAllReports = async () => {
         if (!faculty.length) {
             alert('No faculty members found to generate reports.');
@@ -378,7 +383,7 @@ const Analysis = () => {
             setLoadingAnalysis(false);
         }
     };
-
+    
     const handleFacultyCardClick = async (facultyData) => {
         setLoadingAnalysis(true);
         
@@ -518,6 +523,31 @@ const Analysis = () => {
                     </div>
 
                     <div className="dept-report-actions">
+                        <div className="format-selection">
+                            <label>Report Format:</label>
+                            <div className="format-options">
+                                <label className="format-option">
+                                    <input
+                                        type="radio"
+                                        name="reportFormat"
+                                        value="excel"
+                                        checked={reportFormat === 'excel'}
+                                        onChange={() => setReportFormat('excel')}
+                                    />
+                                    <span>Excel</span>
+                                </label>
+                                <label className="format-option">
+                                    <input
+                                        type="radio"
+                                        name="reportFormat"
+                                        value="pdf"
+                                        checked={reportFormat === 'pdf'}
+                                        onChange={() => setReportFormat('pdf')}
+                                    />
+                                    <span>PDF</span>
+                                </label>
+                            </div>
+                        </div>
                         <button
                             type="button"
                             className="generate-dept-btn"
