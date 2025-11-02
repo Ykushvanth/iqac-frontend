@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const Home = () => {
                   const formData = new FormData();
                   formData.append('file', e.target.files[0]);
                   
-                  fetch('https://iqac-backend-0tj0.onrender.com/api/upload', {
+                  fetch(`${SERVER_URL}/api/upload`, {
                     method: 'POST',
                     body: formData
                   })

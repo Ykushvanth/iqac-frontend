@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './index.css';
-
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
 const QuestionPattern = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ const QuestionPattern = () => {
   const fetchQuestions = useCallback(async () => {
     try {
       setLoading(true);
-      const questionsResponse = await fetch('https://iqac-backend-0tj0.onrender.com/api/questions/with-options');
+      const questionsResponse = await fetch(`${SERVER_URL}/api/questions/with-options`);
 
       if (!questionsResponse.ok) {
         const errorData = await questionsResponse.json().catch(() => ({}));
@@ -172,7 +172,7 @@ const QuestionPattern = () => {
     if (!confirmDelete) return;
     try {
       setLoading(true);
-      const resp = await fetch(`https://iqac-backend-0tj0.onrender.com/api/questions/${questionId}`, {
+      const resp = await fetch(`${SERVER_URL}/api/questions/${questionId}`, {
         method: 'DELETE'
       });
       if (!resp.ok) {
@@ -206,8 +206,8 @@ const QuestionPattern = () => {
       
       // Create or update the question
       const endpoint = isEditing 
-        ? `https://iqac-backend-0tj0.onrender.com/api/questions/${editingQuestionId}`
-        : 'https://iqac-backend-0tj0.onrender.com/api/questions';
+        ? `${SERVER_URL}/api/questions/${editingQuestionId}`
+        : `${SERVER_URL}/api/questions`;
       
       console.log('Submitting to endpoint:', endpoint);
       console.log('Question data:', newQuestion);
@@ -247,8 +247,8 @@ const QuestionPattern = () => {
       
       // Handle options update/creation
       const optionsEndpoint = isEditing
-        ? `https://iqac-backend-0tj0.onrender.com/api/questions/${editingQuestionId}/options`
-        : 'https://iqac-backend-0tj0.onrender.com/api/questions/options';
+        ? `${SERVER_URL}/api/questions/${editingQuestionId}/options`
+        : `${SERVER_URL}/api/questions/options`;
 
       const optionsWithQuestionId = options.map(option => ({
         ...option,

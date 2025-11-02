@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './index.css';
-
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
 const UploadFile = () => {
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ const UploadFile = () => {
                 type: file.type 
             }); // Debug log
 
-            const response = await axios.post('https://iqac-backend-0tj0.onrender.com/api/upload', formData, {
+            const response = await axios.post(`${SERVER_URL}/api/upload`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 },

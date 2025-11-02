@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
+
 
 const AnalysisResults = () => {
     const navigate = useNavigate();
@@ -12,55 +14,52 @@ const AnalysisResults = () => {
     const [activeSection, setActiveSection] = useState('overview');
     const [commentsAnalysis, setCommentsAnalysis] = useState(null);
     const [loadingComments, setLoadingComments] = useState(false);
+    const [cgpaFilter, setCgpaFilter] = useState('all');
 
-    // Calculate section and overall scores
-    const calculateScores = (analysisData) => {
-        if (!analysisData || !analysisData.analysis) return;
-        
+    // Calculate section and overall scores for a provided analysis object
+    const calculateScoresFromAnalysis = (analysisObj) => {
+        if (!analysisObj) return;
+
         const sectionResults = {};
         let totalScore = 0;
         let totalWeight = 0;
-        
+
         // Process each section
-        Object.keys(analysisData.analysis).forEach(sectionKey => {
-            const section = analysisData.analysis[sectionKey];
+        Object.keys(analysisObj).forEach(sectionKey => {
+            const section = analysisObj[sectionKey];
             let sectionScore = 0;
             let questionCount = 0;
-            
+
             // Process each question in the section
-            Object.values(section.questions).forEach(question => {
+            Object.values(section.questions || {}).forEach(question => {
                 let weightedSum = 0;
                 let totalResponses = 0;
-                
-                // Calculate weighted score for each question
-                // Interpret option 1 as bad, 2 as neutral, 3 as good
-                question.options.forEach(option => {
-                    // Map the values: 1 (bad) = 1, 2 (neutral) = 2, 3 (good) = 3
+
+                (question.options || []).forEach(option => {
+                    // Map the values: 1 (bad) => 0, 2 (neutral) => 1, 3 (good) => 2
                     const mappedValue = option.value === 1 ? 0 : option.value === 2 ? 1 : option.value === 3 ? 2 : option.value;
-                    weightedSum += option.count * mappedValue;
-                    totalResponses += option.count;
+                    weightedSum += (option.count || 0) * mappedValue;
+                    totalResponses += (option.count || 0);
                 });
-                
-                const maxPossibleScore = totalResponses * 2; // Using 5-point scale
-                const questionScore = maxPossibleScore > 0 
-                    ? (weightedSum / maxPossibleScore) * 100 
-                    : 0;
-                
+
+                const maxPossibleScore = totalResponses * 2;
+                const questionScore = maxPossibleScore > 0 ? (weightedSum / maxPossibleScore) * 100 : 0;
+
                 sectionScore += questionScore;
                 questionCount++;
             });
-            
+
             const avgSectionScore = questionCount > 0 ? sectionScore / questionCount : 0;
             sectionResults[sectionKey] = {
                 name: section.section_name || sectionKey,
                 score: Math.round(avgSectionScore),
                 questionCount
             };
-            
+
             totalScore += avgSectionScore;
             totalWeight++;
         });
-        
+
         const finalOverallScore = totalWeight > 0 ? Math.round(totalScore / totalWeight) : 0;
         setOverallScore(finalOverallScore);
         setSectionScores(sectionResults);
@@ -88,7 +87,8 @@ const AnalysisResults = () => {
                 
                 setAnalysisData(enrichedAnalysisData);
                 setFacultyData(parsedFacultyData);
-                calculateScores(enrichedAnalysisData);
+                // Calculate scores for full analysis by default
+                calculateScoresFromAnalysis(enrichedAnalysisData.analysis || {});
                 
                 // Load comments analysis if comments are available
                 if (enrichedAnalysisData.comments && enrichedAnalysisData.comments.has_comments) {
@@ -105,6 +105,31 @@ const AnalysisResults = () => {
         setLoading(false);
     }, [navigate]);
 
+    // Recalculate scores when CGPA filter changes
+    useEffect(() => {
+        if (!analysisData) return;
+        if (cgpaFilter === 'all') {
+            calculateScoresFromAnalysis(analysisData.analysis || {});
+        } else {
+            const bucket = analysisData.cgpa_analysis && analysisData.cgpa_analysis[cgpaFilter];
+            const analysisObj = bucket && bucket.analysis ? bucket.analysis : {};
+            calculateScoresFromAnalysis(analysisObj);
+        }
+    }, [analysisData, cgpaFilter]);
+
+    // Reload comments analysis when CGPA filter changes (so negative comments reflect the selected category)
+    useEffect(() => {
+        if (!analysisData) return;
+        if (analysisData.comments && analysisData.comments.has_comments) {
+            // load comments for the selected cgpa bucket
+            loadCommentsAnalysis(analysisData);
+        }
+    }, [cgpaFilter, analysisData]);
+
+    // Currently displayed analysis object depending on CGPA filter
+    const displayedAnalysis = cgpaFilter === 'all'
+        ? (analysisData && analysisData.analysis ? analysisData.analysis : {})
+        : (analysisData && analysisData.cgpa_analysis && analysisData.cgpa_analysis[cgpaFilter] && analysisData.cgpa_analysis[cgpaFilter].analysis) || {};
     const loadCommentsAnalysis = async (analysisData) => {
         try {
             setLoadingComments(true);
@@ -115,13 +140,18 @@ const AnalysisResults = () => {
             
             // Use the actual selected values from the user's filters
             // These come from the Analysis component where user selects degree, department, batch, course
-            const params = new URLSearchParams({
+            const paramsObj = {
                 degree: analysisData.degree || 'B.Tech.',
                 dept: analysisData.department || 'CSE', 
                 batch: analysisData.batch || '2022',
                 course: analysisData.course_code || analysisData.course || '',
                 staffId: analysisData.staff_id || analysisData.staffId || ''
-            });
+            };
+            // include cgpa filter when set (not 'all')
+            if (cgpaFilter && cgpaFilter !== 'all') {
+                paramsObj.cgpa = cgpaFilter;
+            }
+            const params = new URLSearchParams(paramsObj);
             
             console.log('Loading comments analysis with params:', params.toString());
             console.log('Individual param values:', {
@@ -132,7 +162,7 @@ const AnalysisResults = () => {
                 staffId: analysisData.staff_id || analysisData.staffId || 'NOT_FOUND'
             });
             
-            const response = await fetch(`http://localhost:5000/api/analysis/comments?${params.toString()}`);
+            const response = await fetch(`${SERVER_URL}/api/analysis/comments?${params.toString()}`);
             const data = await response.json();
             
             console.log('Comments analysis response:', data);
@@ -188,7 +218,7 @@ const AnalysisResults = () => {
                     })) : 'No analysis data'
             }, null, 2));
             
-            const response = await fetch('http://localhost:5000/api/reports/generate-report', {
+            const response = await fetch(`${SERVER_URL}/api/reports/generate-report`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -310,6 +340,19 @@ const AnalysisResults = () => {
             <main className="dashboard-content">
                 {activeSection === 'overview' ? (
                     <>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                            <div />
+                            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                                <label style={{fontSize: '14px', color: '#333'}}>CGPA Filter:</label>
+                                <select value={cgpaFilter} onChange={(e) => { setCgpaFilter(e.target.value); setActiveSection('overview'); }} style={{padding: '6px 10px', borderRadius: '6px'}}>
+                                    <option value="all">All Students</option>
+                                    <option value="1">{analysisData?.cgpa_summary?.labels?.['1'] || 'Below 6.0'} ({analysisData?.cgpa_summary?.counts?.['1'] || 0})</option>
+                                    <option value="2">{analysisData?.cgpa_summary?.labels?.['2'] || '6.1 - 8.0'} ({analysisData?.cgpa_summary?.counts?.['2'] || 0})</option>
+                                    <option value="3">{analysisData?.cgpa_summary?.labels?.['3'] || 'Above 8.0'} ({analysisData?.cgpa_summary?.counts?.['3'] || 0})</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div className="metrics-grid">
                             <div className="metric-card overall">
                                 <div className="metric-value">{overallScore}%</div>
@@ -327,6 +370,22 @@ const AnalysisResults = () => {
                                 </div>
                             ))}
                         </div>
+
+                        {/* CGPA Distribution Summary */}
+                        {analysisData.cgpa_summary && (
+                            <div className="cgpa-distribution" style={{marginTop: '1.5rem'}}>
+                                <h2>CGPA Distribution</h2>
+                                <div className="distribution-grid" style={{display: 'flex', gap: '1rem', marginTop: '1rem'}}>
+                                    {['1','2','3'].map(key => (
+                                        <div key={key} className={`distribution-item ${key === '1' ? 'negative' : key === '2' ? 'neutral' : 'positive'}`} style={{flex: 1, padding: '1rem', borderRadius: '8px', background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.06)'}}>
+                                            <div style={{fontSize: '14px', color: '#666'}}>{analysisData.cgpa_summary.labels[key]}</div>
+                                            <div style={{fontSize: '20px', fontWeight: 700, marginTop: '6px'}}>{analysisData.cgpa_summary.counts[key] || 0}</div>
+                                            <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>{analysisData.cgpa_summary.percentages[key] || 0}%</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="performance-summary">
                             <h2>Section-wise Performance</h2>
@@ -516,7 +575,7 @@ const AnalysisResults = () => {
                         
                         <div className="section-content">
                             <div className="questions-list">
-                                {Object.values(analysisData.analysis[activeSection]?.questions || {}).map((question, index) => (
+                                {Object.values(displayedAnalysis[activeSection]?.questions || {}).map((question, index) => (
                                     <div key={index} className="question-item">
                                         <div className="question-header">
                                             <h3 className="question-title">Question {index + 1}</h3>
