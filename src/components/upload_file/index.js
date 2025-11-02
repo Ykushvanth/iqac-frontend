@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './index.css';
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://iqac-backend-1.onrender.com";
 const UploadFile = () => {
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
