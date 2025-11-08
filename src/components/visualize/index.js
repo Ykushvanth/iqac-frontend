@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
 
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://iqac-backend-1.onrender.com";
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://gilded-frangipane-0ebad5.netlify.app";
 
 const Visualize = () => {
     const navigate = useNavigate();
