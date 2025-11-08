@@ -127,16 +127,13 @@ const QuestionPattern = () => {
     }
     
     // Validate options
-    let hasOptionError = false;
     options.forEach((option, index) => {
       if (!option.option_label.trim()) {
         errors[`option_label_${index}`] = 'Option label is required';
-        hasOptionError = true;
       }
       
       if (!option.option_text.trim()) {
         errors[`option_text_${index}`] = 'Option text is required';
-        hasOptionError = true;
       }
     });
     
@@ -221,7 +218,6 @@ const QuestionPattern = () => {
       console.log('Submitting to endpoint:', endpoint);
       console.log('Question data:', newQuestion);
       
-      const method = isEditing ? 'PUT' : 'POST';
       const questionResponse = await fetch(endpoint, {
         method: isEditing ? 'PUT' : 'POST',
         headers: {

@@ -166,19 +166,19 @@ const Analysis = () => {
 
     // Fetch courses when department changes
     useEffect(() => {
-        if (filters.department) {
+        if (filters.department && filters.degree) {
             fetchCourses(filters.degree, filters.department);
         }
-    }, [filters.department]);
+    }, [filters.department, filters.degree]);
 
     // Fetch faculty when course or staffIdSearch changes
     useEffect(() => {
-        if (filters.course) {
+        if (filters.course && filters.degree && filters.department) {
             fetchFaculty(filters.degree, filters.department, filters.course, staffIdSearch);
         } else {
             setFaculty([]);
         }
-    }, [filters.course, staffIdSearch]);
+    }, [filters.course, filters.degree, filters.department, staffIdSearch]);
 
     const fetchDegrees = async () => {
         try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://iqac-backend-1.onrender.com";
@@ -132,7 +132,7 @@ const AnalysisResults = () => {
         }
         
         setLoading(false);
-    }, [navigate]);
+    }, [navigate, loadCommentsAnalysis]);
 
     // Recalculate scores when CGPA filter changes
     useEffect(() => {
@@ -153,7 +153,7 @@ const AnalysisResults = () => {
             // load comments for the selected cgpa bucket
             loadCommentsAnalysis(analysisData);
         }
-    }, [cgpaFilter, analysisData]);
+    }, [cgpaFilter, analysisData, loadCommentsAnalysis]);
 
     useEffect(() => {
         if (
@@ -169,7 +169,7 @@ const AnalysisResults = () => {
     const displayedAnalysis = cgpaFilter === 'all'
         ? (analysisData && analysisData.analysis ? analysisData.analysis : {})
         : (analysisData && analysisData.cgpa_analysis && analysisData.cgpa_analysis[cgpaFilter] && analysisData.cgpa_analysis[cgpaFilter].analysis) || {};
-    const loadCommentsAnalysis = async (analysisData) => {
+    const loadCommentsAnalysis = useCallback(async (analysisData) => {
         try {
             setLoadingComments(true);
             
@@ -227,7 +227,7 @@ const AnalysisResults = () => {
         } finally {
             setLoadingComments(false);
         }
-    };
+    }, [cgpaFilter]);
 
     const handleBackToAnalysis = () => {
         sessionStorage.removeItem('analysisResults');
