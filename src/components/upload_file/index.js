@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './index.css';
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://gilded-frangipane-0ebad5.netlify.app";
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://silver-lamington-b2e10d.netlify.app";
 const UploadFile = () => {
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);

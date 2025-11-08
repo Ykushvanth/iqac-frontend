@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://gilded-frangipane-0ebad5.netlify.app";
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://silver-lamington-b2e10d.netlify.app";
 const QuestionPattern = () => {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
