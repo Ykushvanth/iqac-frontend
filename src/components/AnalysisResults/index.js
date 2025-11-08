@@ -94,6 +94,66 @@ const AnalysisResults = () => {
         setNonScoringSections(nonScoringResults);
     };
 
+    const loadCommentsAnalysis = useCallback(async (analysisData) => {
+        try {
+            setLoadingComments(true);
+            
+            // Debug: Log the analysisData structure
+            console.log('Full analysisData object:', analysisData);
+            console.log('All available keys in analysisData:', Object.keys(analysisData));
+            
+            // Use the actual selected values from the user's filters
+            // These come from the Analysis component where user selects degree, department, batch, course
+            const paramsObj = {
+                degree: analysisData.degree || 'B.Tech.',
+                dept: analysisData.department || 'CSE', 
+                batch: analysisData.batch || '2022',
+                course: analysisData.course_code || analysisData.course || '',
+                staffId: analysisData.staff_id || analysisData.staffId || ''
+            };
+            // include cgpa filter when set (not 'all')
+            if (cgpaFilter && cgpaFilter !== 'all') {
+                paramsObj.cgpa = cgpaFilter;
+            }
+            const params = new URLSearchParams(paramsObj);
+            
+            console.log('Loading comments analysis with params:', params.toString());
+            console.log('Individual param values:', {
+                degree: analysisData.degree || 'B.Tech. (default)',
+                dept: analysisData.department || 'CSE (default)',
+                batch: analysisData.batch || '2022 (default)',
+                course: analysisData.course_code || analysisData.course || 'NOT_FOUND',
+                staffId: analysisData.staff_id || analysisData.staffId || 'NOT_FOUND'
+            });
+            
+            const response = await fetch(`${SERVER_URL}/api/analysis/comments?${params.toString()}`);
+            const data = await response.json();
+            
+            console.log('Comments analysis response:', data);
+            
+            if (data.success) {
+                setCommentsAnalysis(data);
+            } else {
+                console.error('Comments analysis failed:', data.message);
+                // Set the error response so we can display it
+                setCommentsAnalysis({
+                    success: false,
+                    message: data.message,
+                    error: data.error
+                });
+            }
+        } catch (error) {
+            console.error('Error loading comments analysis:', error);
+            setCommentsAnalysis({
+                success: false,
+                message: 'Network error occurred',
+                error: error.message
+            });
+        } finally {
+            setLoadingComments(false);
+        }
+    }, [cgpaFilter]);
+
     useEffect(() => {
         const storedAnalysisData = sessionStorage.getItem('analysisResults');
         const storedFacultyData = sessionStorage.getItem('facultyData');
@@ -169,65 +229,6 @@ const AnalysisResults = () => {
     const displayedAnalysis = cgpaFilter === 'all'
         ? (analysisData && analysisData.analysis ? analysisData.analysis : {})
         : (analysisData && analysisData.cgpa_analysis && analysisData.cgpa_analysis[cgpaFilter] && analysisData.cgpa_analysis[cgpaFilter].analysis) || {};
-    const loadCommentsAnalysis = useCallback(async (analysisData) => {
-        try {
-            setLoadingComments(true);
-            
-            // Debug: Log the analysisData structure
-            console.log('Full analysisData object:', analysisData);
-            console.log('All available keys in analysisData:', Object.keys(analysisData));
-            
-            // Use the actual selected values from the user's filters
-            // These come from the Analysis component where user selects degree, department, batch, course
-            const paramsObj = {
-                degree: analysisData.degree || 'B.Tech.',
-                dept: analysisData.department || 'CSE', 
-                batch: analysisData.batch || '2022',
-                course: analysisData.course_code || analysisData.course || '',
-                staffId: analysisData.staff_id || analysisData.staffId || ''
-            };
-            // include cgpa filter when set (not 'all')
-            if (cgpaFilter && cgpaFilter !== 'all') {
-                paramsObj.cgpa = cgpaFilter;
-            }
-            const params = new URLSearchParams(paramsObj);
-            
-            console.log('Loading comments analysis with params:', params.toString());
-            console.log('Individual param values:', {
-                degree: analysisData.degree || 'B.Tech. (default)',
-                dept: analysisData.department || 'CSE (default)',
-                batch: analysisData.batch || '2022 (default)',
-                course: analysisData.course_code || analysisData.course || 'NOT_FOUND',
-                staffId: analysisData.staff_id || analysisData.staffId || 'NOT_FOUND'
-            });
-            
-            const response = await fetch(`${SERVER_URL}/api/analysis/comments?${params.toString()}`);
-            const data = await response.json();
-            
-            console.log('Comments analysis response:', data);
-            
-            if (data.success) {
-                setCommentsAnalysis(data);
-            } else {
-                console.error('Comments analysis failed:', data.message);
-                // Set the error response so we can display it
-                setCommentsAnalysis({
-                    success: false,
-                    message: data.message,
-                    error: data.error
-                });
-            }
-        } catch (error) {
-            console.error('Error loading comments analysis:', error);
-            setCommentsAnalysis({
-                success: false,
-                message: 'Network error occurred',
-                error: error.message
-            });
-        } finally {
-            setLoadingComments(false);
-        }
-    }, [cgpaFilter]);
 
     const handleBackToAnalysis = () => {
         sessionStorage.removeItem('analysisResults');
