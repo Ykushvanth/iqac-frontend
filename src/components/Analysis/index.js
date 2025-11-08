@@ -8,14 +8,12 @@ const Analysis = () => {
     const [filters, setFilters] = useState({
         degree: '',
         department: '',
-        batch: '',
         course: ''
     });
     
     const [options, setOptions] = useState({
         degrees: [],
         departments: [],
-        batches: [],
         courses: []
     });
 
@@ -24,7 +22,12 @@ const Analysis = () => {
     const [staffIdSearch, setStaffIdSearch] = useState('');
     const [loadingAnalysis, setLoadingAnalysis] = useState(false);
     const [loadingDeptReport, setLoadingDeptReport] = useState(false);
-    const [loadingDeptAllReport, setLoadingDeptAllReport] = useState(false);
+    const [selectedBatch, setSelectedBatch] = useState('all'); // For batch filtering in reports
+
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        navigate('/login');
+    };
 
     const getInitials = (fullName) => {
         if (!fullName || typeof fullName !== 'string') return '?';
@@ -36,10 +39,17 @@ const Analysis = () => {
     };
 
     const handleGenerateDepartmentReport = async () => {
-        if (!filters.degree || !filters.department || !filters.batch) {
-            alert('Please select Degree, Department and Batch.');
+        if (!filters.degree || !filters.department) {
+            alert('Please select Degree and Department.');
             return;
         }
+        
+        if (selectedBatch === 'all') {
+            // Generate report for all batches
+            handleGenerateDepartmentAllBatches();
+            return;
+        }
+        
         try {
             setLoadingDeptReport(true);
             const resp = await fetch(`${SERVER_URL}/api/reports/generate-department-report`, {
@@ -48,7 +58,7 @@ const Analysis = () => {
                 body: JSON.stringify({
                     degree: filters.degree,
                     dept: filters.department,
-                    batch: filters.batch,
+                    batch: selectedBatch,
                     format: reportFormat
                 })
             });
@@ -61,7 +71,7 @@ const Analysis = () => {
             const a = document.createElement('a');
             a.href = url;
             const fileExtension = reportFormat === 'pdf' ? 'pdf' : 'xlsx';
-            a.download = `department_feedback_${filters.department}_${filters.batch}.${fileExtension}`;
+            a.download = `department_feedback_${filters.department}_${selectedBatch}.${fileExtension}`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -80,7 +90,7 @@ const Analysis = () => {
             return;
         }
         try {
-            setLoadingDeptAllReport(true);
+            setLoadingDeptReport(true);
             const resp = await fetch(`${SERVER_URL}/api/reports/generate-department-report-all-batches`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -108,7 +118,7 @@ const Analysis = () => {
             console.error('Department all-batches report error:', e);
             alert('Error generating department report (all batches).');
         } finally {
-            setLoadingDeptAllReport(false);
+            setLoadingDeptReport(false);
         }
     };
 
@@ -154,24 +164,17 @@ const Analysis = () => {
         }
     }, [filters.degree]);
 
-    // Fetch batches when department changes
+    // Fetch courses when department changes
     useEffect(() => {
         if (filters.department) {
-            fetchBatches(filters.degree, filters.department);
+            fetchCourses(filters.degree, filters.department);
         }
     }, [filters.department]);
-
-    // Fetch courses when batch changes
-    useEffect(() => {
-        if (filters.batch) {
-            fetchCourses(filters.degree, filters.department, filters.batch);
-        }
-    }, [filters.batch]);
 
     // Fetch faculty when course or staffIdSearch changes
     useEffect(() => {
         if (filters.course) {
-            fetchFaculty(filters.degree, filters.department, filters.batch, filters.course, staffIdSearch);
+            fetchFaculty(filters.degree, filters.department, filters.course, staffIdSearch);
         } else {
             setFaculty([]);
         }
@@ -203,20 +206,10 @@ const Analysis = () => {
         }
     };
 
-    const fetchBatches = async (degree, department) => {
-        try {
-            const response = await fetch(`${SERVER_URL}/api/analysis/batches?degree=${degree}&dept=${department}`);
-            const data = await response.json();
-            setOptions(prev => ({ ...prev, batches: data }));
-        } catch (error) {
-            console.error('Error fetching batches:', error);
-        }
-    };
-
-    const fetchCourses = async (degree, department, batch) => {
+    const fetchCourses = async (degree, department) => {
         try {
             const response = await fetch(
-                `${SERVER_URL}/api/analysis/courses?degree=${degree}&dept=${department}&batch=${batch}`
+                `${SERVER_URL}/api/analysis/courses?degree=${degree}&dept=${department}`
             );
             const data = await response.json();
             setOptions(prev => ({ ...prev, courses: data }));
@@ -225,9 +218,9 @@ const Analysis = () => {
         }
     };
 
-    const fetchFaculty = async (degree, department, batch, course, staffId) => {
+    const fetchFaculty = async (degree, department, course, staffId) => {
         try {
-            const params = new URLSearchParams({ degree, dept: department, batch, course });
+            const params = new URLSearchParams({ degree, dept: department, course });
             if (staffId && staffId.trim() !== '') {
                 params.append('staffId', staffId.trim());
             }
@@ -240,149 +233,6 @@ const Analysis = () => {
             setFaculty([]);
         }
     };
-
-    const generateBulkReport = async () => {
-        try {
-            setLoadingAnalysis(true);
-            const allAnalysisData = [];
-
-            // Collect analysis data for all faculty
-            for (const facultyMember of faculty) {
-                const params = new URLSearchParams({
-                    degree: filters.degree,
-                    dept: filters.department,
-                    batch: filters.batch,
-                    course: filters.course,
-                    staffId: facultyMember.staff_id || facultyMember.staffid || ''
-                });
-                
-                // Get analysis data
-                const analysisResponse = await fetch(`${SERVER_URL}/api/analysis/feedback?${params.toString()}`);
-                const analysisData = await analysisResponse.json();
-                
-                if (analysisData.success) {
-                    allAnalysisData.push({
-                        analysisData: analysisData,
-                        facultyData: facultyMember
-                    });
-                }
-            }
-
-            // Generate consolidated report
-            const reportResponse = await fetch(`${SERVER_URL}/api/reports/generate-bulk-report`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    facultyAnalyses: allAnalysisData,
-                    filters: {
-                        degree: filters.degree,
-                        department: filters.department,
-                        batch: filters.batch,
-                        course: filters.course
-                    }
-                }),
-            });
-
-            if (!reportResponse.ok) {
-                throw new Error('Failed to generate report');
-            }
-
-            // Download the report
-            const blob = await reportResponse.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `faculty_feedback_analysis_${filters.department}_${filters.course}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-            return true;
-        } catch (error) {
-            console.error('Error generating report:', error);
-            return false;
-        }
-    };
-    
-    const handleGenerateAllReports = async () => {
-        if (!faculty.length) {
-            alert('No faculty members found to generate reports.');
-            return;
-        }
-
-        if (!window.confirm(`Are you sure you want to generate a consolidated report for all ${faculty.length} faculty members?`)) {
-            return;
-        }
-
-        try {
-            setLoadingAnalysis(true);
-            const allAnalysisData = [];
-
-            // Collect analysis data for all faculty
-            for (const facultyMember of faculty) {
-                const params = new URLSearchParams({
-                    degree: filters.degree,
-                    dept: filters.department,
-                    batch: filters.batch,
-                    course: filters.course,
-                    staffId: facultyMember.staff_id || facultyMember.staffid || ''
-                });
-                
-                // Get analysis data
-                const analysisResponse = await fetch(`${SERVER_URL}/api/analysis/feedback?${params.toString()}`);
-                const analysisData = await analysisResponse.json();
-                
-                if (analysisData.success) {
-                    allAnalysisData.push({
-                        analysisData: analysisData,
-                        facultyData: facultyMember
-                    });
-                }
-            }
-
-            // Generate consolidated report
-            const reportResponse = await fetch(`${SERVER_URL}/api/bulk-reports/generate-bulk-report`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    facultyAnalyses: allAnalysisData,
-                    filters: {
-                        degree: filters.degree,
-                        department: filters.department,
-                        batch: filters.batch,
-                        course: filters.course
-                    }
-                }),
-            });
-
-            if (!reportResponse.ok) {
-                throw new Error('Failed to generate consolidated report');
-            }
-
-            // Download the report
-            const blob = await reportResponse.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `faculty_feedback_analysis_${filters.department}_${filters.course}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-            alert('Consolidated report generated successfully!');
-        } catch (error) {
-            console.error('Error generating consolidated report:', error);
-            alert('Error generating consolidated report. Please try again.');
-        } finally {
-            setLoadingAnalysis(false);
-        }
-    };
     
     const handleFacultyCardClick = async (facultyData) => {
         setLoadingAnalysis(true);
@@ -393,10 +243,22 @@ const Analysis = () => {
             sessionStorage.setItem('savedFaculty', JSON.stringify(faculty));
             sessionStorage.setItem('savedStaffIdSearch', staffIdSearch);
             
+            // For each batch this faculty teaches, we'll get the analysis
+            // But for now, let's get the first batch or combined analysis
+            const batchToUse = facultyData.batches && facultyData.batches.length > 0 
+                ? facultyData.batches[0] 
+                : null;
+            
+            if (!batchToUse) {
+                alert('No batch information available for this faculty');
+                setLoadingAnalysis(false);
+                return;
+            }
+            
             const params = new URLSearchParams({
                 degree: filters.degree,
                 dept: filters.department,
-                batch: filters.batch,
+                batch: batchToUse,
                 course: filters.course,
                 staffId: facultyData.staff_id || facultyData.staffid || ''
             });
@@ -423,6 +285,16 @@ const Analysis = () => {
         }
     };
 
+    // Get available batches for batch filter dropdown
+    const getAvailableBatches = () => {
+        if (!filters.course) return [];
+        
+        const selectedCourse = options.courses.find(c => c.code === filters.course);
+        if (!selectedCourse || !selectedCourse.batches) return [];
+        
+        return ['all', ...selectedCourse.batches];
+    };
+
     return (
         <div className="analysis-container">
             <header className="header">
@@ -437,13 +309,21 @@ const Analysis = () => {
                         <p>Internal Quality Assurance Compliance</p>
                     </div>
                 </div>
+                <div className="header-actions">
+                    <button className="home-btn" onClick={() => navigate('/')}>
+                        <span>🏠</span> Home
+                    </button>
+                    <button className="logout-btn" onClick={handleLogout}>
+                        <span>🚪</span> Logout
+                    </button>
+                </div>
             </header>
 
             <main className="main-content">
                 <h1 className="portal-title">Student Feedback Analysis Portal</h1>
                 <h2 className="institution">Kalasalingam Academy of Research and Education</h2>
                 <p className="portal-description">
-                    Use the filters below to analyze student feedback by degree, department, batch, and course.
+                    Use the filters below to analyze student feedback by degree, department, and course.
                 </p>
 
                 <div className="filters-section">
@@ -455,7 +335,6 @@ const Analysis = () => {
                                 ...filters, 
                                 degree: e.target.value,
                                 department: '',
-                                batch: '',
                                 course: ''
                             })}
                         >
@@ -473,7 +352,6 @@ const Analysis = () => {
                             onChange={(e) => setFilters({
                                 ...filters,
                                 department: e.target.value,
-                                batch: '',
                                 course: ''
                             })}
                             disabled={!filters.degree}
@@ -486,24 +364,6 @@ const Analysis = () => {
                     </div>
 
                     <div className="filter-group">
-                        <label>Batch</label>
-                        <select 
-                            value={filters.batch}
-                            onChange={(e) => setFilters({
-                                ...filters,
-                                batch: e.target.value,
-                                course: ''
-                            })}
-                            disabled={!filters.department}
-                        >
-                            <option value="">Select Batch</option>
-                            {options.batches.map(batch => (
-                                <option key={batch} value={batch}>{batch}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="filter-group">
                         <label>Course</label>
                         <select 
                             value={filters.course}
@@ -511,12 +371,12 @@ const Analysis = () => {
                                 ...filters,
                                 course: e.target.value
                             })}
-                            disabled={!filters.batch}
+                            disabled={!filters.department}
                         >
                             <option value="">Select Course</option>
                             {options.courses.map(course => (
                                 <option key={course.code} value={course.code}>
-                                    {course.code} - {course.name}
+                                    {course.code} - {course.name} (Batches: {course.batches.join(', ')})
                                 </option>
                             ))}
                         </select>
@@ -548,22 +408,29 @@ const Analysis = () => {
                                 </label>
                             </div>
                         </div>
+                        
+                        {filters.course && (
+                            <div className="filter-group" style={{marginLeft: '1rem'}}>
+                                <label>Batch for Report:</label>
+                                <select 
+                                    value={selectedBatch}
+                                    onChange={(e) => setSelectedBatch(e.target.value)}
+                                >
+                                    <option value="all">All Batches</option>
+                                    {getAvailableBatches().filter(b => b !== 'all').map(batch => (
+                                        <option key={batch} value={batch}>{batch}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        
                         <button
                             type="button"
                             className="generate-dept-btn"
                             onClick={handleGenerateDepartmentReport}
-                            disabled={!filters.degree || !filters.department || !filters.batch || loadingDeptReport}
+                            disabled={!filters.degree || !filters.department || loadingDeptReport}
                         >
                             {loadingDeptReport ? 'Generating…' : 'Generate Department Report'}
-                        </button>
-                        <button
-                            type="button"
-                            className="generate-dept-btn alt"
-                            onClick={handleGenerateDepartmentAllBatches}
-                            disabled={!filters.degree || !filters.department || loadingDeptAllReport}
-                            style={{ marginLeft: '0.5rem' }}
-                        >
-                            {loadingDeptAllReport ? 'Generating…' : 'Generate Dept Report (All Batches)'}
                         </button>
                     </div>
                 </div>
@@ -580,20 +447,6 @@ const Analysis = () => {
                                     onChange={(e) => setStaffIdSearch(e.target.value)}
                                 />
                             </div>
-                            {faculty.length > 0 && (
-                                <button 
-                                    className="generate-all-btn"
-                                    onClick={handleGenerateAllReports}
-                                    disabled={loadingAnalysis}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                        <polyline points="7 10 12 15 17 10"/>
-                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                    </svg>
-                                    Generate Reports for All Faculty
-                                </button>
-                            )}
                         </div>
 
                         <div className="faculty-grid">
@@ -611,7 +464,7 @@ const Analysis = () => {
                                             <div className="faculty-header-info">
                                                 <div className="faculty-name">{fac.faculty_name || fac.name || 'Unknown'}</div>
                                                 <div className="faculty-sub">
-                                                    <strong>{filters.degree || '-'}</strong> · {filters.department || '-'} · Batch {filters.batch || '-'}
+                                                    <strong>{filters.degree || '-'}</strong> · {filters.department || '-'}
                                                 </div>
                                             </div>
                                         </div>
@@ -633,6 +486,10 @@ const Analysis = () => {
                                                     </div>
                                                     <div className="info-label">Name:</div>
                                                     <div className="info-value course-name">{fac.course_name || '-'}</div>
+                                                    <div className="info-label">Batches:</div>
+                                                    <div className="info-value">
+                                                        <div className="badge">{fac.batches_text || fac.batches?.join(', ') || '-'}</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -659,12 +516,11 @@ const Analysis = () => {
                                                 className="copy-btn"
                                                 title="Copy faculty ID to clipboard"
                                                 onClick={(e) => {
-                                                    e.stopPropagation(); // Prevent card click
+                                                    e.stopPropagation();
                                                     const value = fac.staff_id || fac.staffid || '';
                                                     if (navigator && navigator.clipboard && value) {
                                                         navigator.clipboard.writeText(value)
                                                             .then(() => {
-                                                                // Could add a toast notification here in the future
                                                                 console.log('ID copied to clipboard');
                                                             })
                                                             .catch(() => {});

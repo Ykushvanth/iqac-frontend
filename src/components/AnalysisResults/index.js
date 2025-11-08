@@ -3,6 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import './index.css';
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://iqac-backend-1.onrender.com";
 
+const NON_SCORING_SECTIONS = new Set([
+    'COURSE CONTENT AND STRUCTURE',
+    'STUDENT-CENTRIC FACTORS'
+]);
+
+const normalizeSectionName = (sectionKey, section) => {
+    const raw = (section?.section_name || sectionKey || '').toString();
+    return raw.trim().toUpperCase();
+};
+
 
 const AnalysisResults = () => {
     const navigate = useNavigate();
@@ -11,32 +21,40 @@ const AnalysisResults = () => {
     const [loading, setLoading] = useState(true);
     const [overallScore, setOverallScore] = useState(0);
     const [sectionScores, setSectionScores] = useState({});
+    const [nonScoringSections, setNonScoringSections] = useState({});
     const [activeSection, setActiveSection] = useState('overview');
     const [commentsAnalysis, setCommentsAnalysis] = useState(null);
     const [loadingComments, setLoadingComments] = useState(false);
     const [cgpaFilter, setCgpaFilter] = useState('all');
 
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        navigate('/login');
+    };
+
     // Calculate section and overall scores for a provided analysis object
     const calculateScoresFromAnalysis = (analysisObj) => {
-        if (!analysisObj) return;
+        if (!analysisObj) {
+            setOverallScore(0);
+            setSectionScores({});
+            setNonScoringSections({});
+            return;
+        }
 
-        const sectionResults = {};
+        const scoringResults = {};
+        const nonScoringResults = {};
         let totalScore = 0;
         let totalWeight = 0;
 
-        // Process each section
-        Object.keys(analysisObj).forEach(sectionKey => {
-            const section = analysisObj[sectionKey];
+        Object.entries(analysisObj).forEach(([sectionKey, section]) => {
             let sectionScore = 0;
             let questionCount = 0;
 
-            // Process each question in the section
-            Object.values(section.questions || {}).forEach(question => {
+            Object.values(section?.questions || {}).forEach(question => {
                 let weightedSum = 0;
                 let totalResponses = 0;
 
                 (question.options || []).forEach(option => {
-                    // Map the values: 1 (bad) => 0, 2 (neutral) => 1, 3 (good) => 2
                     const mappedValue = option.value === 1 ? 0 : option.value === 2 ? 1 : option.value === 3 ? 2 : option.value;
                     weightedSum += (option.count || 0) * mappedValue;
                     totalResponses += (option.count || 0);
@@ -50,19 +68,30 @@ const AnalysisResults = () => {
             });
 
             const avgSectionScore = questionCount > 0 ? sectionScore / questionCount : 0;
-            sectionResults[sectionKey] = {
-                name: section.section_name || sectionKey,
+            const sectionName = section?.section_name || sectionKey;
+            const normalizedName = normalizeSectionName(sectionKey, section);
+            const isNonScoring = NON_SCORING_SECTIONS.has(normalizedName);
+
+            const sectionData = {
+                name: sectionName,
                 score: Math.round(avgSectionScore),
-                questionCount
+                questionCount,
+                isNonScoring
             };
 
-            totalScore += avgSectionScore;
-            totalWeight++;
+            if (isNonScoring) {
+                nonScoringResults[sectionKey] = sectionData;
+            } else {
+                scoringResults[sectionKey] = sectionData;
+                totalScore += avgSectionScore;
+                totalWeight++;
+            }
         });
 
         const finalOverallScore = totalWeight > 0 ? Math.round(totalScore / totalWeight) : 0;
         setOverallScore(finalOverallScore);
-        setSectionScores(sectionResults);
+        setSectionScores(scoringResults);
+        setNonScoringSections(nonScoringResults);
     };
 
     useEffect(() => {
@@ -125,6 +154,16 @@ const AnalysisResults = () => {
             loadCommentsAnalysis(analysisData);
         }
     }, [cgpaFilter, analysisData]);
+
+    useEffect(() => {
+        if (
+            activeSection !== 'overview' &&
+            !sectionScores[activeSection] &&
+            !nonScoringSections[activeSection]
+        ) {
+            setActiveSection('overview');
+        }
+    }, [activeSection, sectionScores, nonScoringSections]);
 
     // Currently displayed analysis object depending on CGPA filter
     const displayedAnalysis = cgpaFilter === 'all'
@@ -271,6 +310,13 @@ const AnalysisResults = () => {
         }
     };
 
+    const scoringEntries = Object.entries(sectionScores);
+    const nonScoringEntries = Object.entries(nonScoringSections);
+    const currentSection = activeSection !== 'overview'
+        ? (sectionScores[activeSection] || nonScoringSections[activeSection])
+        : null;
+    const isNonScoringActive = activeSection !== 'overview' && Boolean(nonScoringSections[activeSection]);
+
     if (loading) {
         return (
             <div className="analysis-results-container">
@@ -334,6 +380,12 @@ const AnalysisResults = () => {
                         </svg>
                         Generate Report
                     </button>
+                    <button onClick={() => navigate('/')} className="home-btn">
+                        <span>🏠</span> Home
+                    </button>
+                    <button onClick={handleLogout} className="logout-btn">
+                        <span>🚪</span> Logout
+                    </button>
                 </div>
             </div>
 
@@ -358,7 +410,7 @@ const AnalysisResults = () => {
                                 <div className="metric-value">{overallScore}%</div>
                                 <div className="metric-label">Overall Score</div>
                             </div>
-                            {Object.entries(sectionScores).map(([key, section]) => (
+                            {scoringEntries.map(([key, section]) => (
                                 <div 
                                     key={key}
                                     className="metric-card"
@@ -370,6 +422,27 @@ const AnalysisResults = () => {
                                 </div>
                             ))}
                         </div>
+
+                        {nonScoringEntries.length > 0 && (
+                            <div className="non-scoring-sections">
+                                <h3 className="non-scoring-heading">Non-Scoring Sections</h3>
+                                <p className="non-scoring-note">These sections are excluded from the overall score but remain available for question-wise analysis.</p>
+                                <div className="metrics-grid non-scoring-grid">
+                                    {nonScoringEntries.map(([key, section]) => (
+                                        <div 
+                                            key={key}
+                                            className="metric-card non-scoring"
+                                            onClick={() => setActiveSection(key)}
+                                        >
+                                            <div className="non-scoring-badge">Non-Scoring</div>
+                                            <div className="metric-value">{section.score}%</div>
+                                            <div className="metric-label">{section.name}</div>
+                                            <div className="metric-detail">Question-wise analysis only →</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* CGPA Distribution Summary */}
                         {analysisData.cgpa_summary && (
@@ -387,31 +460,62 @@ const AnalysisResults = () => {
                             </div>
                         )}
 
-                        <div className="performance-summary">
-                            <h2>Section-wise Performance</h2>
-                            <div className="section-bars">
-                                {Object.entries(sectionScores).map(([key, section]) => (
-                                    <div key={key} className="section-bar-item">
-                                        <div className="bar-header">
-                                            <span>{section.name}</span>
-                                            <span>{section.score}%</span>
+                        {scoringEntries.length > 0 && (
+                            <div className="performance-summary">
+                                <h2>Section-wise Performance</h2>
+                                <div className="section-bars">
+                                    {scoringEntries.map(([key, section]) => (
+                                        <div key={key} className="section-bar-item">
+                                            <div className="bar-header">
+                                                <span>{section.name}</span>
+                                                <span>{section.score}%</span>
+                                            </div>
+                                            <div className="progress-bar">
+                                                <div 
+                                                    className={`progress-fill ${
+                                                        section.score >= 75 ? 'success' : 
+                                                        section.score >= 50 ? 'warning' : 'danger'
+                                                    }`}
+                                                    style={{ width: `${section.score}%` }}
+                                                />
+                                            </div>
+                                            <div className="bar-footer">
+                                                Based on {section.questionCount} questions
+                                            </div>
                                         </div>
-                                        <div className="progress-bar">
-                                            <div 
-                                                className={`progress-fill ${
-                                                    section.score >= 75 ? 'success' : 
-                                                    section.score >= 50 ? 'warning' : 'danger'
-                                                }`}
-                                                style={{ width: `${section.score}%` }}
-                                            />
-                                        </div>
-                                        <div className="bar-footer">
-                                            Based on {section.questionCount} questions
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {nonScoringEntries.length > 0 && (
+                            <div className="performance-summary non-scoring">
+                                <h2>Non-Scoring Sections (Question-wise Insights)</h2>
+                                <p className="non-scoring-note">These sections do not impact the overall score but are available for qualitative review.</p>
+                                <div className="section-bars">
+                                    {nonScoringEntries.map(([key, section]) => (
+                                        <div key={key} className="section-bar-item">
+                                            <div className="bar-header">
+                                                <span>{section.name}</span>
+                                                <span>{section.score}%</span>
+                                            </div>
+                                            <div className="progress-bar">
+                                                <div 
+                                                    className={`progress-fill ${
+                                                        section.score >= 75 ? 'success' : 
+                                                        section.score >= 50 ? 'warning' : 'danger'
+                                                    }`}
+                                                    style={{ width: `${section.score}%` }}
+                                                />
+                                            </div>
+                                            <div className="bar-footer">
+                                                Based on {section.questionCount} questions
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Comments Analysis Section */}
                         {analysisData.comments && analysisData.comments.has_comments && (
@@ -567,9 +671,11 @@ const AnalysisResults = () => {
                             >
                                 ← Back to Overview
                             </button>
-                            <h2>{sectionScores[activeSection]?.name}</h2>
-                            <div className="section-score">
-                                Score: {sectionScores[activeSection]?.score}%
+                            <h2>{currentSection?.name}</h2>
+                            <div className={`section-score ${isNonScoringActive ? 'non-scoring' : ''}`}>
+                                {isNonScoringActive
+                                    ? `Question Score: ${currentSection?.score ?? 0}% (Non-Scoring)`
+                                    : `Score: ${currentSection?.score ?? 0}%`}
                             </div>
                         </div>
                         

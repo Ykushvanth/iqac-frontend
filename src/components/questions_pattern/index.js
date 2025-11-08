@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './index.css';
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://iqac-backend-1.onrender.com";
 const QuestionPattern = () => {
+  const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -14,7 +16,9 @@ const QuestionPattern = () => {
   const SECTION_TYPES = [
     'TEACHING EFFECTIVENESS',
     'CLASSROOM DYNAMICS AND ENGAGEMENT',
-    'ASSESSMENT AND FEEDBACK'
+    'ASSESSMENT AND FEEDBACK',
+    'COURSE CONTENT AND STRUCTURE',
+    'STUDENT-CENTRIC FACTORS'
   ];
   
   // New question form state
@@ -28,6 +32,11 @@ const QuestionPattern = () => {
   const [options, setOptions] = useState([
     { option_label: 'A', option_text: '' }
   ]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
   
   // Fetch questions and options from the API
   const fetchQuestions = useCallback(async () => {
@@ -319,6 +328,14 @@ const QuestionPattern = () => {
             <h1>Office of IQAC, KARE</h1>
             <p>Internal Quality Assurance Compliance</p>
           </div>
+        </div>
+        <div className="header-actions">
+          <button className="home-btn" onClick={() => navigate('/')}>
+            <span>🏠</span> Home
+          </button>
+          <button className="logout-btn" onClick={handleLogout}>
+            <span>🚪</span> Logout
+          </button>
         </div>
       </header>
       

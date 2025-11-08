@@ -1,10 +1,66 @@
-import React from 'react';
+
+
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.css';
+
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "https://iqac-backend-1.onrender.com";
 
 const Home = () => {
   const navigate = useNavigate();
+  const [showAnalysisOptions, setShowAnalysisOptions] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const handleFileUpload = async (e, endpoint, successMessage) => {
+    if (e.target.files?.[0]) {
+      const formData = new FormData();
+      formData.append('file', e.target.files[0]);
+      
+      try {
+        const response = await fetch(`${SERVER_URL}${endpoint}`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          let message = successMessage.replace('{count}', data.inserted || data.count);
+          
+          if (data.total) {
+            message += `\n\nTotal processed: ${data.total}`;
+            message += `\nSuccessfully inserted: ${data.inserted}`;
+            if (data.skipped > 0) {
+              message += `\nSkipped: ${data.skipped}`;
+            }
+          }
+          
+          if (data.errors && data.errors.length > 0) {
+            message += '\n\n⚠️ Error Details (first 10):';
+            data.errors.forEach(err => {
+              message += `\n- ${err.course_code || `Row ${err.row}`}: ${err.error}`;
+            });
+            if (data.hasMoreErrors) {
+              message += `\n\n... and ${data.totalErrors - 10} more errors`;
+            }
+          }
+          
+          alert(message);
+        } else {
+          throw new Error(data.message || data.error);
+        }
+      } catch (error) {
+        alert('Upload failed: ' + error.message);
+      } finally {
+        e.target.value = ''; // Reset file input
+      }
+    }
+  };
 
   return (
     <div className="home-container">
@@ -20,6 +76,9 @@ const Home = () => {
             <p>Internal Quality Assurance Compliance</p>
           </div>
         </div>
+        <button className="logout-btn" onClick={handleLogout}>
+          <span>🚪</span> Logout
+        </button>
       </header>
 
       <main className="main-content">
@@ -35,39 +94,33 @@ const Home = () => {
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
-              onChange={(e) => {
-                if (e.target.files?.[0]) {
-                  const formData = new FormData();
-                  formData.append('file', e.target.files[0]);
-                  
-                  fetch(`${SERVER_URL}/api/upload`, {
-                    method: 'POST',
-                    body: formData
-                  })
-                  .then(response => response.json())
-                  .then(data => {
-                    if (data.success) {
-                      alert(`Successfully uploaded ${data.count} records!`);
-                    } else {
-                      throw new Error(data.message);
-                    }
-                  })
-                  .catch(error => {
-                    alert('Upload failed: ' + error.message);
-                  })
-                  .finally(() => {
-                    e.target.value = ''; // Reset file input
-                  });
-                }
-              }}
+              onChange={(e) => handleFileUpload(
+                e, 
+                '/api/upload', 
+                'Successfully uploaded {count} feedback records!'
+              )}
               style={{ display: 'none' }}
             />
-            <span className="button-text">Upload File 📁</span>
+            <span className="button-text">Upload Feedback 📋</span>
+          </label>
+
+          <label className="upload-button-container courses-upload">
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={(e) => handleFileUpload(
+                e, 
+                '/api/upload-courses', 
+                'Successfully uploaded {count} courses!'
+              )}
+              style={{ display: 'none' }}
+            />
+            <span className="button-text">Upload Courses 📚</span>
           </label>
 
           <button 
             className="start-analysis-btn"
-            onClick={() => navigate('/analysis')}
+            onClick={() => setShowAnalysisOptions(true)}
           >
             Start Analysis <span className="icon">📊</span>
           </button>
@@ -109,6 +162,41 @@ const Home = () => {
           </div>
         </section>
       </main>
+
+      {/* Analysis Options Modal */}
+      {showAnalysisOptions && (
+        <div className="modal-overlay" onClick={() => setShowAnalysisOptions(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Choose Analysis Type</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowAnalysisOptions(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="analysis-option-card" onClick={() => {
+                setShowAnalysisOptions(false);
+                navigate('/analysis');
+              }}>
+                <div className="option-icon">📊</div>
+                <h4>Normal Analysis</h4>
+                <p>Detailed analysis with individual faculty reports and downloadable Excel/PDF reports</p>
+              </div>
+              <div className="analysis-option-card" onClick={() => {
+                setShowAnalysisOptions(false);
+                navigate('/visualize');
+              }}>
+                <div className="option-icon">📈</div>
+                <h4>Visualization</h4>
+                <p>Interactive charts and visual insights for quick understanding of performance metrics</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

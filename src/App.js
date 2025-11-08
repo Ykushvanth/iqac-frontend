@@ -30,6 +30,7 @@ import Home from './components/Home';
 import Analysis from './components/Analysis';
 import QuestionsPattern from './components/questions_pattern';
 import AnalysisResults from './components/AnalysisResults';
+import Visualize from './components/visualize';
 import Login from './components/Login';
 
 // Protected Route Component
@@ -62,6 +63,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Analysis />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/visualize" 
+            element={
+              <ProtectedRoute>
+                <Visualize />
               </ProtectedRoute>
             } 
           />
