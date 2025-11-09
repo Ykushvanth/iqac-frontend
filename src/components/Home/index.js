@@ -193,6 +193,14 @@ const Home = () => {
                 <h4>Visualization</h4>
                 <p>Interactive charts and visual insights for quick understanding of performance metrics</p>
               </div>
+              <div className="analysis-option-card" onClick={() => {
+                setShowAnalysisOptions(false);
+                navigate('/school-wise');
+              }}>
+                <div className="option-icon">🏫</div>
+                <h4>School-wise Reports</h4>
+                <p>Generate comprehensive reports for all departments within a school in Excel or PDF format</p>
+              </div>
             </div>
           </div>
         </div>

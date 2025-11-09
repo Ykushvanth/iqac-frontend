@@ -32,6 +32,7 @@ import QuestionsPattern from './components/questions_pattern';
 import AnalysisResults from './components/AnalysisResults';
 import Visualize from './components/visualize';
 import Login from './components/Login';
+import SchoolWise from './components/school_wise';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -87,6 +88,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AnalysisResults />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/school-wise" 
+            element={
+              <ProtectedRoute>
+                <SchoolWise />
               </ProtectedRoute>
             } 
           />
