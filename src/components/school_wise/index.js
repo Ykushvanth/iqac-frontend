@@ -42,13 +42,18 @@ const SchoolWise = () => {
             setLoadingSchools(true);
             const response = await fetch(`${SERVER_URL}/api/school-reports/schools`);
             if (!response.ok) {
-                throw new Error('Failed to fetch schools');
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch schools`);
             }
             const data = await response.json();
-            setSchools(data);
+            if (Array.isArray(data)) {
+                setSchools(data);
+            } else {
+                throw new Error('Invalid response format');
+            }
         } catch (error) {
             console.error('Error fetching schools:', error);
-            alert('Error fetching schools. Please try again.');
+            alert(`Error fetching schools: ${error.message}. Please check the server console for more details.`);
         } finally {
             setLoadingSchools(false);
         }
