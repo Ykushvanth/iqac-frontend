@@ -9,13 +9,11 @@ const SchoolWise = () => {
     const [schools, setSchools] = useState([]);
     const [selectedSchool, setSelectedSchool] = useState('');
     const [departments, setDepartments] = useState([]);
-    const [degrees, setDegrees] = useState([]);
-    const [selectedDegree, setSelectedDegree] = useState('');
-    const [selectedBatch, setSelectedBatch] = useState('all');
     const [reportFormat, setReportFormat] = useState('excel');
     const [loading, setLoading] = useState(false);
     const [loadingSchools, setLoadingSchools] = useState(true);
     const [loadingDepartments, setLoadingDepartments] = useState(false);
+    const [loadingNegativeCommentsExcel, setLoadingNegativeCommentsExcel] = useState(false);
 
     const handleLogout = () => {
         localStorage.removeItem('user');
@@ -25,7 +23,6 @@ const SchoolWise = () => {
     // Fetch schools on component mount
     useEffect(() => {
         fetchSchools();
-        fetchDegrees();
     }, []);
 
     // Fetch departments when school changes
@@ -76,18 +73,6 @@ const SchoolWise = () => {
         }
     };
 
-    const fetchDegrees = async () => {
-        try {
-            const response = await fetch(`${SERVER_URL}/api/analysis/degrees`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch degrees');
-            }
-            const data = await response.json();
-            setDegrees(data);
-        } catch (error) {
-            console.error('Error fetching degrees:', error);
-        }
-    };
 
     const handleGenerateReport = async () => {
         if (!selectedSchool) {
@@ -102,8 +87,6 @@ const SchoolWise = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     school: selectedSchool,
-                    degree: selectedDegree || '',
-                    batch: selectedBatch === 'all' ? 'ALL' : selectedBatch,
                     format: reportFormat
                 })
             });
@@ -129,6 +112,49 @@ const SchoolWise = () => {
             alert('Error generating school report: ' + error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGenerateNegativeCommentsExcel = async () => {
+        if (!selectedSchool) {
+            alert('Please select a school.');
+            return;
+        }
+
+        try {
+            setLoadingNegativeCommentsExcel(true);
+            const response = await fetch(`${SERVER_URL}/api/school-reports/generate-school-negative-comments-excel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    school: selectedSchool
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `HTTP ${response.status}: Failed to generate negative comments Excel`);
+            }
+
+            const blob = await response.blob();
+            if (!blob || blob.size === 0) {
+                throw new Error('Received empty file from server');
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const safeSchoolName = selectedSchool.replace(/[^a-z0-9]/gi, '_');
+            a.download = `${safeSchoolName}_negative_comments_report.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Negative comments Excel error:', error);
+            alert('Error generating negative comments Excel: ' + error.message);
+        } finally {
+            setLoadingNegativeCommentsExcel(false);
         }
     };
 
@@ -160,6 +186,7 @@ const SchoolWise = () => {
                 <h1 className="page-title">School-wise Report Generation</h1>
                 <p className="page-description">
                     Generate comprehensive feedback analysis reports for all departments within a school.
+                    Reports include all degrees and batches to provide a complete overview of the school's performance.
                     Reports can be generated in Excel (multiple sheets) or PDF (multiple pages) format.
                 </p>
 
@@ -205,39 +232,6 @@ const SchoolWise = () => {
                     )}
 
                     <div className="filter-group">
-                        <label htmlFor="degree-select">Degree (Optional)</label>
-                        <select
-                            id="degree-select"
-                            value={selectedDegree}
-                            onChange={(e) => setSelectedDegree(e.target.value)}
-                            className="filter-select"
-                        >
-                            <option value="">All Degrees</option>
-                            {degrees.map((degree, index) => (
-                                <option key={index} value={degree}>
-                                    {degree}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="filter-group">
-                        <label htmlFor="batch-select">Batch (Optional)</label>
-                        <select
-                            id="batch-select"
-                            value={selectedBatch}
-                            onChange={(e) => setSelectedBatch(e.target.value)}
-                            className="filter-select"
-                        >
-                            <option value="all">All Batches</option>
-                            <option value="2022">2022</option>
-                            <option value="2023">2023</option>
-                            <option value="2024">2024</option>
-                            <option value="2025">2025</option>
-                        </select>
-                    </div>
-
-                    <div className="filter-group">
                         <label htmlFor="format-select">Report Format</label>
                         <select
                             id="format-select"
@@ -265,6 +259,24 @@ const SchoolWise = () => {
                                 <>
                                     <span>📊</span>
                                     Generate School Report
+                                </>
+                            )}
+                        </button>
+                        <button
+                            className="generate-btn"
+                            onClick={handleGenerateNegativeCommentsExcel}
+                            disabled={!selectedSchool || loadingNegativeCommentsExcel}
+                            style={{ marginLeft: '1rem', backgroundColor: '#28a745' }}
+                        >
+                            {loadingNegativeCommentsExcel ? (
+                                <>
+                                    <span className="spinner"></span>
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <span>📝</span>
+                                    Generate Negative Comments Excel
                                 </>
                             )}
                         </button>

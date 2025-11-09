@@ -22,6 +22,7 @@ const Analysis = () => {
     const [staffIdSearch, setStaffIdSearch] = useState('');
     const [loadingAnalysis, setLoadingAnalysis] = useState(false);
     const [loadingDeptReport, setLoadingDeptReport] = useState(false);
+    const [loadingNegativeCommentsExcel, setLoadingNegativeCommentsExcel] = useState(false);
     const [selectedBatch, setSelectedBatch] = useState('all'); // For batch filtering in reports
 
     const handleLogout = () => {
@@ -81,6 +82,48 @@ const Analysis = () => {
             alert('Error generating department report.');
         } finally {
             setLoadingDeptReport(false);
+        }
+    };
+
+    const handleGenerateNegativeCommentsExcel = async () => {
+        if (!filters.degree || !filters.department) {
+            alert('Please select Degree and Department.');
+            return;
+        }
+        
+        try {
+            setLoadingNegativeCommentsExcel(true);
+            const resp = await fetch(`${SERVER_URL}/api/reports/generate-department-negative-comments-excel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    degree: filters.degree,
+                    dept: filters.department,
+                    batch: selectedBatch === 'all' ? 'ALL' : selectedBatch,
+                    academicYear: '2025-26',
+                    semester: 'Odd'
+                })
+            });
+            
+            if (!resp.ok) {
+                const msg = await resp.text();
+                throw new Error(msg || 'Failed to generate negative comments Excel');
+            }
+            
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `department_negative_comments_${filters.department}_${selectedBatch === 'all' ? 'all_batches' : selectedBatch}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (e) {
+            console.error('Negative comments Excel error:', e);
+            alert('Error generating negative comments Excel: ' + e.message);
+        } finally {
+            setLoadingNegativeCommentsExcel(false);
         }
     };
 
@@ -431,6 +474,15 @@ const Analysis = () => {
                             disabled={!filters.degree || !filters.department || loadingDeptReport}
                         >
                             {loadingDeptReport ? 'Generating…' : 'Generate Department Report'}
+                        </button>
+                        <button
+                            type="button"
+                            className="generate-dept-btn"
+                            onClick={handleGenerateNegativeCommentsExcel}
+                            disabled={!filters.degree || !filters.department || loadingNegativeCommentsExcel}
+                            style={{ marginLeft: '1rem', backgroundColor: '#28a745' }}
+                        >
+                            {loadingNegativeCommentsExcel ? 'Generating…' : 'Generate Negative Comments Excel'}
                         </button>
                     </div>
                 </div>

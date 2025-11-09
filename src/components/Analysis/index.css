@@ -378,15 +378,17 @@
     flex-direction: column;
 }
 
-.faculty-name {
+.faculty-card-header .faculty-name {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     font-weight: 700;
     font-size: 1.2rem;
     margin-bottom: 0.4rem;
     line-height: 1.3;
-    color: #ffffff !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    -webkit-text-fill-color: #ffffff !important;
-}
+    mix-blend-mode: normal;
+    isolation: isolate;
+  }
 
 .faculty-sub {
     color: rgba(255, 255, 255, 0.85);
